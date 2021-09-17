@@ -57,7 +57,10 @@ class Face_detect_crop:
                                              max_num=max_num,
                                              metric='default')
         if bboxes.shape[0] == 0:
+            # print('No faces detected in this frame...')
             return None
+        #else:
+        #    print(f'{bboxes.shape[0]} faces detected in this frame')
         ret = []
         # for i in range(bboxes.shape[0]):
         #     bbox = bboxes[i, 0:4]
@@ -88,4 +91,4 @@ class Face_detect_crop:
         # M, _ = face_align.estimate_norm(kps, crop_size, mode ='None') 
         # align_img = cv2.warpAffine(img, M, (crop_size, crop_size), borderValue=0.0)
         
-        return align_img_list, M_list
+        return align_img_list, M_list, bboxes
