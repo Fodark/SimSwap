@@ -69,7 +69,8 @@ if __name__ == "__main__":
         latend_id = F.normalize(latend_id, p=2, dim=1)
 
         # TODO: save the latent vector for easiness of retrieval
-        torch.save(latend_id, "latents/clooney.pt")
+        torch.save(latend_id, "latents/scarlett.pt")
+        print("SAVED LATENT")
 
         ############## Forward Pass ######################
 

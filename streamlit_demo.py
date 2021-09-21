@@ -73,29 +73,17 @@ start_epoch, epoch_iter = 1, 0
 crop_size = 224
 
 torch.nn.Module.dump_patches = True
-model = create_model(opt)
-model.eval()
-
-if opt.use_mask:
-    n_classes = 19
-    net = BiSeNet(n_classes=n_classes)
-    net.cuda()
-    save_pth = os.path.join("./parsing_model/checkpoint", "79999_iter.pth")
-    net.load_state_dict(torch.load(save_pth))
-    net.eval()
-else:
-    net = None
-
-spNorm = SpecificNorm()
-app = Face_detect_crop(name="antelope", root="./insightface_func/models")
-app.prepare(ctx_id=0, det_thresh=0.6, det_size=(640, 640))
-logoclass = watermark_image("./simswaplogo/simswaplogo.png")
 
 HERE = Path(__file__).parent
 
 logger = logging.getLogger(__name__)
 
-name2tensor = {"George Clooney": "latents/clooney.pt", "Yiming": "latents/yiming.pt"}
+name2tensor = {
+    "George Clooney": "latents/clooney.pt",
+    "Yiming": "latents/yiming.pt",
+    "Luca": "latents/luca.pt",
+    "Scarlett Johansson": "latents/scarlett.pt",
+}
 
 
 RTC_CONFIGURATION = RTCConfiguration(
@@ -129,25 +117,45 @@ def app_simswap():
         def __init__(self) -> None:
             self.condition = "George Clooney"
             self.anony_mode = "selfie"
+            # self.demo_image = cv2.imread("./demo_file/group.jpg")
+            self.test_mode = False
+
+            self.model = create_model(opt)
+            self.model.eval()
+
+            if opt.use_mask:
+                n_classes = 19
+                self.net = BiSeNet(n_classes=n_classes)
+                self.net.cuda()
+                save_pth = os.path.join("./parsing_model/checkpoint", "79999_iter.pth")
+                self.net.load_state_dict(torch.load(save_pth))
+                self.net.eval()
+            else:
+                self.net = None
+
+            self.spNorm = SpecificNorm()
+            self.app = Face_detect_crop(
+                name="antelope", root="./insightface_func/models"
+            )
+            self.app.prepare(ctx_id=0, det_thresh=0.6, det_size=(640, 640))
+            self.logoclass = watermark_image("./simswaplogo/simswaplogo.png")
+            print("Finished initialization")
 
         def recv(self, frame: av.VideoFrame) -> av.VideoFrame:
             # print("=== START FRAME ===")
-            start_time = time.time()
             latent_id = torch.load(name2tensor[self.condition], map_location="cuda:0")
-            img = frame.to_ndarray(format="bgr24")
+            if self.test_mode:
+                img = cv2.imread("./demo_file/group.jpg")
+            else:
+                img = frame.to_ndarray(format="bgr24")
 
             try:
-                img_b_align_crop_list, b_mat_list, _ = app.get(
+                img_b_align_crop_list, b_mat_list, _ = self.app.get(
                     img, crop_size, self.anony_mode
                 )
-                detect_time = time.time()
-                # print(
-                #     "Time to detect faces:",
-                #     round(detect_time - start_time, 5),
-                #     "seconds",
-                # )
-            except:
+            except Exception as e:
                 print(f"Error with current frame")
+                print(e)
                 return av.VideoFrame.from_ndarray(img, format="bgr24")
             # detect_results = None
             swap_result_list = []
@@ -161,12 +169,11 @@ def app_simswap():
                 )[None, ...].cuda()
                 # print("\t-- Face", str(idx), "dimensions", _[idx])
 
-                swap_result = model(None, b_align_crop_tenor, latent_id, None, True)[0]
+                swap_result = self.model(
+                    None, b_align_crop_tenor, latent_id, None, True
+                )[0]
                 swap_result_list.append(swap_result)
                 b_align_crop_tenor_list.append(b_align_crop_tenor)
-
-            swap_time = time.time()
-            # print("Time to swap faces:", round(swap_time - detect_time, 5), "seconds")
 
             final_img = reverse2wholeimage(
                 b_align_crop_tenor_list,
@@ -174,17 +181,14 @@ def app_simswap():
                 b_mat_list,
                 crop_size,
                 img,
-                logoclass,
+                self.logoclass,
                 "",
                 opt.no_simswaplogo,
-                pasring_model=net,
+                pasring_model=self.net,
                 use_mask=opt.use_mask,
-                norm=spNorm,
+                norm=self.spNorm,
                 skip_save=True,
             )
-
-            fit_time = time.time()
-            # print("Time to fit back image:", round(fit_time - swap_time, 5), "seconds")
             # print("=== END FRAME ===")
 
             return av.VideoFrame.from_ndarray(final_img, format="bgr24")
@@ -206,16 +210,18 @@ def app_simswap():
         [
             "https://citynews-quicomo.stgy.ovh/~media/original-hi/7125800779587/george-clooney-2-2.jpg",
             "https://my.fbk.eu/fbk-api/v2/picture/ywang?w=250&crop=1",
+            "https://my.fbk.eu/fbk-api/v2/picture/lzanella?w=250&crop=1",
+            "https://biografieonline.it/img/bio/box/s/Scarlett_Johansson.jpg",
         ],
         # use_column_width="always",
         width=150,
-        caption=["George Clooney", "Yiming"],
+        caption=["George Clooney", "Yiming", "Luca", "Scarlett Johansson"],
     )
 
     if webrtc_ctx.video_processor:
         webrtc_ctx.video_processor.condition = st.sidebar.radio(
             "Select face to replace with",
-            ("George Clooney", "Yiming"),
+            ("George Clooney", "Yiming", "Luca", "Scarlett Johansson"),
         )
 
         webrtc_ctx.video_processor.anony_mode = st.sidebar.radio(
@@ -225,7 +231,7 @@ def app_simswap():
     else:
         st.sidebar.radio(
             "Select face to replace with",
-            ("George Clooney", "Yiming"),
+            ("George Clooney", "Yiming", "Luca", "Scarlett Johansson"),
         )
 
         st.sidebar.radio(
@@ -254,7 +260,7 @@ if __name__ == "__main__":
     logger.setLevel(logging.WARNING)
 
     st_webrtc_logger = logging.getLogger("streamlit_webrtc")
-    st_webrtc_logger.setLevel(logging.DEBUG)
+    st_webrtc_logger.setLevel(logging.WARNING)
 
     fsevents_logger = logging.getLogger("fsevents")
     fsevents_logger.setLevel(logging.WARNING)
