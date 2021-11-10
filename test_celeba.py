@@ -58,7 +58,7 @@ if __name__ == "__main__":
     app = Face_detect_crop(name="antelope", root="./insightface_func/models")
     app.prepare(ctx_id=0, det_thresh=0.6, det_size=(640, 640))
 
-    pairs = pd.read_csv("./data/pairs.csv")
+    pairs = pd.read_csv("./celebahq_test.csv")
     similarities = []
 
     with torch.no_grad():
