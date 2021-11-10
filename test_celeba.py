@@ -41,8 +41,10 @@ if __name__ == "__main__":
     opt.use_mask = True
     opt.name = "people"
     opt.Arc_path = "arcface_model/arcface_checkpoint.tar"
-    opt.low_res = True
+    opt.low_res = False
     opt.no_simswap_logo = True
+    opt.dataroot = "/media/hdd_data/dvl1/data512x512"
+    opt.output_path = "/media/hdd_data/dvl1/simswap_output/512"
 
     start_epoch, epoch_iter = 1, 0
     crop_size = 224
@@ -63,6 +65,9 @@ if __name__ == "__main__":
 
         for row in pairs.itertuples():
             pic_a, pic_b = row
+            pic_a, pic_b = os.path.join(opt.dataroot, pic_a), os.path.join(
+                opt.dataroot, pic_b
+            )
             pic_b_basename = os.path.basename(pic_b)
             # pic_a = opt.pic_a_path)
 
